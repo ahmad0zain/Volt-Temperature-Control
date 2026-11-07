@@ -1,17 +1,25 @@
-/*
- * Macros.h
+/**
+ * @file Macros.h
+ * @brief Compatibility names for the Volt common bit operations.
+ * @version 0.1.0
+ * @author ahmad
  *
- *  Created on: Jan 27, 2023
- *      Author: ahmad
+ * Originally created on January 27, 2023.
+ * Depends on our own bit_math.h. SET_BIT and GET_BIT are provided by that file.
+ * CLR_BIT and TOG_BIT retain the original driver interface as aliases.
+ * New code may use CLEAR_BIT and TOGGLE_BIT directly.
+ *
+ * All argument, width, register-access and non-atomicity restrictions of
+ * bit_math.h apply. This file does not duplicate the macro implementations.
  */
 
-#ifndef INC_MACROS_H_
-#define INC_MACROS_H_
+#ifndef VOLT_MACROS_H
+#define VOLT_MACROS_H
 
-#define CLR_BIT(REG,BIT) REG &= ~(1<<BIT)
-#define SET_BIT(REG,BIT) REG |= (1<<BIT)
-#define TOG_BIT(REG,BIT) REG ^= (1<<BIT)
-#define GET_BIT(REG,BIT) ((REG>>BIT)&1)
+#include "bit_math.h"
 
+#define CLR_BIT(REG, BIT) CLEAR_BIT((REG), (BIT))
+#define TOG_BIT(REG, BIT) TOGGLE_BIT((REG), (BIT))
 
-#endif /* INC_MACROS_H_ */
+#endif /* VOLT_MACROS_H */
+
