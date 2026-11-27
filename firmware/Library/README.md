@@ -136,9 +136,11 @@ has not been established from a schematic of your kit.
 - Strings must fit the remaining visible row. Overflow is rejected before
   writing that request. No automatic wrapping or newline interpretation.
 - Text uses the LCD's character-ROM byte encoding, not UTF-8 or Arabic shaping.
-- VOLT_OK means GPIO writes and waits completed; with R/W grounded, a missing
-  LCD or its busy flag cannot be read. GPIO errors invalidate initialization;
-  fix the cause and run LCD_Init again. Partial transfers cannot be rolled back.
+- GPIO setters and writes return void. Invalid or blocked writes are ignored.
+  ReadPin returns GPIO_LOW, GPIO_HIGH or GPIO_LEVEL_INVALID. ReadPort returns
+  an int from 0 to 255, or -1 for an invalid port.
+- The LCD owns its six pins after initialization. Its status covers argument
+  checks and initialization state. GPIO writes and LCD receipt are unconfirmed.
 - LCD access must be serialized between tasks; do not call the driver from ISR.
 - Delay_us and Delay_ms are blocking minimum waits. Call/loop overhead and
   interrupts add time. They are not precision waveform or RTOS scheduling tools.
@@ -154,7 +156,7 @@ make check
 ```
 
 They test LCD initialization/byte protocol, requested timing, every visible
-cursor position, bounds, invalid configurations, fault propagation/recovery,
+cursor position, bounds, invalid configurations, GPIO register behavior,
 and every u16 microsecond argument at five clock settings. The tests record
 delay loop counts rather than executing AVR assembly. ASan and UBSan are used.
 See VALIDATION.md for the checks completed for this assembled folder layout.

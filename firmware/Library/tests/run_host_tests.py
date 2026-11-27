@@ -16,6 +16,12 @@ def run(args, **kwargs):
 
 with tempfile.TemporaryDirectory(prefix='volt_lcd_tests_') as tmp:
     temp = Path(tmp)
+    gpio_test = temp / 'gpio_test'
+    run(['gcc', *FLAGS, '-DGPIO_UNIT_TEST', '-I' + str(ROOT / 'tests/gpio_mock'),
+         *INCLUDES, str(ROOT / 'mcal/atmega32/gpio/gpio.c'),
+         str(ROOT / 'tests/test_gpio.c'), '-o', str(gpio_test)])
+    run([str(gpio_test)])
+
     lcd_test = temp / 'lcd_test'
     run(['gcc', *FLAGS, *INCLUDES, str(ROOT / 'hal/lcd/lcd.c'),
          str(ROOT / 'tests/test_lcd.c'), '-o', str(lcd_test)])

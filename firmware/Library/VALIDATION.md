@@ -1,6 +1,6 @@
 # Validation — 2026-11-07
 
-This report applies to the current assembled folder layout.
+This report applies to the original 2026-11-07 source bundle.
 
 | Check | Result |
 |---|---|

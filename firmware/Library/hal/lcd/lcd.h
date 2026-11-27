@@ -12,10 +12,9 @@
  * A disconnected display cannot be detected with R/W tied to ground.
  * VOLT_INVALID_ARG: invalid enum, NULL pointer or invalid pin configuration.
  * VOLT_OUT_OF_RANGE: column/string exceeds the configured visible row.
- * VOLT_NOT_READY: not initialized, or a GPIO operation cannot proceed.
+ * VOLT_NOT_READY: LCD has not been initialized.
  * VOLT_TIMEOUT is not generated: fixed waits are used, not busy-flag polling.
- * GPIO failures are propagated, may leave a partial transfer/text on the LCD,
- * and invalidate initialization. Call LCD_Init again after fixing the cause.
+ * The LCD owns its configured pins. Reconfiguring them can silently drop writes.
  * Argument checks reject bad input before sending a command or data.
  */
 #ifndef VOLT_LCD_H
