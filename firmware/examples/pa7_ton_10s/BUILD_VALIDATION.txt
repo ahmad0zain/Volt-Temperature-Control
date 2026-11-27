@@ -1,0 +1,18 @@
+PA7 TON 10-second LCD test - Build validation
+Date: 2026-11-27
+Compiler: AVR-GCC 14.2.0
+Target: ATmega32, F_CPU=1000000UL, -Os -Wall -Wextra -Werror
+AVR compile/link: PASS, no warnings.
+Host tests: PASS, 27 timer/display checkpoints, undefined-behavior sanitizer.
+Covered: 10-second threshold, elapsed time, early-release reset/restart,
+completion latch, 32-bit wrap, independent instances, zero/one ms presets,
+LCD row lengths and output at ET=0 and ET=10000.
+Intel HEX record checksums, EOF and flash bounds: PASS.
+LCD format strings in HEX: confirmed.
+Flash image bytes: 4042 / 32768.
+Input: PA7 (pin 33), active-low with internal pull-up; standard held-input TON.
+Output: timer1.Q displayed and mirrored on PC0 (pin 22) LED.
+LCD pins: RS=PD0, E=PD1, D4..D7=PD4..PD7; R/W=GND.
+Timer0: CTC, prescaler /8, OCR0=124, nominal 1 ms interrupt period.
+Input debounce: 20 ms; LCD refresh: approximately 100 ms plus transfer time.
+Proteus execution and physical hardware testing: not performed.
