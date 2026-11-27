@@ -88,7 +88,6 @@ static void LCD_WriteNibble(u8 nibble)
     Delay_us(LCD_ENABLE_HIGH_US);
     LCD_WriteLine(LCD_EN_INDEX, GPIO_LOW);
     Delay_us(LCD_DATA_HOLD_US);
-
 }
 
 static void LCD_SendByte(u8 value, GPIO_Level_t rs)
@@ -177,16 +176,20 @@ volt_status_t LCD_Home(void)
     return VOLT_OK;
 }
 
+static void LCD_PositionCursor(LCD_Row_t row, u8 column)
+{
+    u8 address = (u8)(((row == LCD_ROW_1) ? 0x00U : 0x40U) + column);
+    LCD_SendByte((u8)(LCD_CMD_SET_DDRAM | address), GPIO_LOW);
+    lcdColumn = column;
+}
+
 volt_status_t LCD_SetCursor(LCD_Row_t row, u8 column)
 {
-    u8 address;
     if ((row != LCD_ROW_1) && (row != LCD_ROW_2)) { return VOLT_INVALID_ARG; }
     if (column >= LCD_COLUMNS) { return VOLT_OUT_OF_RANGE; }
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
 
-    address = (u8)(((row == LCD_ROW_1) ? 0x00U : 0x40U) + column);
-    LCD_SendByte((u8)(LCD_CMD_SET_DDRAM | address), GPIO_LOW);
-    lcdColumn = column;
+    LCD_PositionCursor(row, column);
     return VOLT_OK;
 }
 
@@ -199,6 +202,17 @@ volt_status_t LCD_WriteChar(char character)
     return VOLT_OK;
 }
 
+/* Both callers validate the entire string before the first transfer. */
+static void LCD_SendText(const char *text)
+{
+    while (*text != '\0')
+    {
+        LCD_SendByte((u8)*text, GPIO_HIGH);
+        ++lcdColumn;
+        ++text;
+    }
+}
+
 volt_status_t LCD_WriteString(const char *text)
 {
     volt_status_t status;
@@ -206,12 +220,7 @@ volt_status_t LCD_WriteString(const char *text)
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
     status = LCD_CheckText(text, (u8)(LCD_COLUMNS - lcdColumn));
     if (status != VOLT_OK) { return status; }
-    while (*text != '\0')
-    {
-        status = LCD_WriteChar(*text);
-        if (status != VOLT_OK) { return status; }
-        ++text;
-    }
+    LCD_SendText(text);
     return VOLT_OK;
 }
 
@@ -223,8 +232,9 @@ volt_status_t LCD_WriteStringAt(LCD_Row_t row, u8 column, const char *text)
     status = LCD_CheckText(text, (u8)(LCD_COLUMNS - column));
     if (status != VOLT_OK) { return status; }
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
-    status = LCD_SetCursor(row, column);
-    return (status == VOLT_OK) ? LCD_WriteString(text) : status;
+    LCD_PositionCursor(row, column);
+    LCD_SendText(text);
+    return VOLT_OK;
 }
 
 volt_status_t LCD_SetDisplayControl(

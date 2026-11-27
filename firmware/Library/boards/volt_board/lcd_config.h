@@ -45,6 +45,20 @@
 #define LCD_ENABLE_HIGH_US     1U
 #define LCD_DATA_HOLD_US       1U
 
+/* Delay_us and Delay_ms take u16. Zero disables the requested wait. */
+#define LCD_DELAY_INVALID(n) (((n) < 1) || ((n) > 65535UL))
+#if LCD_DELAY_INVALID(LCD_POWER_ON_DELAY_MS) || \
+    LCD_DELAY_INVALID(LCD_RESET_FIRST_MS) || \
+    LCD_DELAY_INVALID(LCD_RESET_NEXT_US) || \
+    LCD_DELAY_INVALID(LCD_COMMAND_DELAY_US) || \
+    LCD_DELAY_INVALID(LCD_CLEAR_HOME_MS) || \
+    LCD_DELAY_INVALID(LCD_DATA_SETUP_US) || \
+    LCD_DELAY_INVALID(LCD_ENABLE_HIGH_US) || \
+    LCD_DELAY_INVALID(LCD_DATA_HOLD_US)
+#error "LCD delay settings must be integers from 1 to 65535 in the specified units."
+#endif
+#undef LCD_DELAY_INVALID
+
 #if (LCD_COLUMNS != 16U) || (LCD_ROWS != 2U)
 #error "This driver version supports only LCD1602 (16 columns, 2 rows)."
 #endif

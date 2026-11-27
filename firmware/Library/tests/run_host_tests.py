@@ -2,6 +2,7 @@
 """Host protocol/calculation tests; no physical LCD or AVR instructions run."""
 from pathlib import Path
 import os
+import re
 import subprocess
 import tempfile
 
@@ -41,6 +42,17 @@ with tempfile.TemporaryDirectory(prefix='volt_lcd_tests_') as tmp:
     print('PASS Fcpu.h: invalid clock values rejected; build-wide overrides accepted.')
 
     config = (ROOT / 'boards/volt_board/lcd_config.h').read_text()
+    timing_fields = re.findall(r'^#define (LCD_\w+_(?:MS|US))\s+\d+U', config, re.M)
+    assert len(timing_fields) == 8
+    for field in timing_fields:
+        for value in ('0', '65536UL'):
+            variant = re.sub(r'(#define ' + field + r'\s+)\d+U',
+                             lambda match: match[1] + value, config)
+            result = subprocess.run(['gcc', *INCLUDES, '-x', 'c', '-fsyntax-only', '-'],
+                                    input=variant, text=True, capture_output=True)
+            assert result.returncode and 'LCD delay settings' in result.stderr, field
+    print('PASS LCD timing: zero and overflowing settings rejected for every delay.')
+
     variants = (
         config.replace('#define LCD_RS_PIN  GPIO_PIN_0', '#define LCD_RS_PIN  GPIO_PIN_1'),
         config.replace('#define LCD_RS_PORT GPIO_PORT_B', '#define LCD_RS_PORT ((GPIO_Port_t)4)'),
