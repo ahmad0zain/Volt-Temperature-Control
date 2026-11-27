@@ -148,6 +148,24 @@ int main(void)
         expectByte(0U, (u8)(0x80U + ((i < 16U) ? 0U : 0x40U) + i % 16U), 0U);
     }
 
+    /* A rejected positioned write must preserve the previous cursor. */
+    assert(LCD_SetCursor(LCD_ROW_2, 15U) == VOLT_OK);
+    edges = 0U;
+    assert(LCD_WriteStringAt(LCD_ROW_1, 15U, "AB") == VOLT_OUT_OF_RANGE);
+    assert(edges == 0U);
+    assert(LCD_WriteString("X") == VOLT_OK);
+    expectByte(0U, 'X', 1U);
+    assert(LCD_WriteChar('Y') == VOLT_OUT_OF_RANGE);
+
+    /* Empty positioned writes still move the cursor. */
+    edges = 0U;
+    assert(LCD_WriteStringAt(LCD_ROW_1, 14U, "") == VOLT_OK);
+    expectByte(0U, 0x8EU, 0U);
+    assert(LCD_WriteString("AB") == VOLT_OK);
+    expectByte(2U, 'A', 1U);
+    expectByte(4U, 'B', 1U);
+    assert(LCD_WriteChar('C') == VOLT_OUT_OF_RANGE);
+
     puts("PASS LCD: startup, nibbles, RS/EN timing, row bounds and text validation.");
     return 0;
 }
