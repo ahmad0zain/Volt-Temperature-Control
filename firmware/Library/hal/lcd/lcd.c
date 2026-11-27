@@ -66,58 +66,36 @@ static volt_status_t LCD_ValidateConfig(void)
     return VOLT_OK;
 }
 
-static volt_status_t LCD_Fail(volt_status_t status)
+static void LCD_WriteLine(u8 index, GPIO_Level_t level)
 {
-    lcdReady = 0U;
-    /* Best effort: release EN. If its direction was changed, GPIO may refuse.
-     * The original failure is returned; this is not a rollback guarantee.
-     */
-    (void)GPIO_WritePin(lcdPins[LCD_EN_INDEX].port,
-                        lcdPins[LCD_EN_INDEX].pin, GPIO_LOW);
-    return status;
+    GPIO_WritePin(lcdPins[index].port, lcdPins[index].pin, level);
 }
 
-static volt_status_t LCD_WriteLine(u8 index, GPIO_Level_t level)
-{
-    volt_status_t status = GPIO_WritePin(lcdPins[index].port,
-                                         lcdPins[index].pin, level);
-    return (status == VOLT_OK) ? VOLT_OK : LCD_Fail(status);
-}
-
-static volt_status_t LCD_WriteNibble(u8 nibble)
+static void LCD_WriteNibble(u8 nibble)
 {
     u8 bit;
-    volt_status_t status;
 
-    status = LCD_WriteLine(LCD_EN_INDEX, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteLine(LCD_EN_INDEX, GPIO_LOW);
 
     for (bit = 0U; bit < 4U; ++bit)
     {
-        status = LCD_WriteLine((u8)(LCD_DATA_FIRST_INDEX + bit),
+        LCD_WriteLine((u8)(LCD_DATA_FIRST_INDEX + bit),
             ((nibble & (u8)(1U << bit)) != 0U) ? GPIO_HIGH : GPIO_LOW);
-        if (status != VOLT_OK) { return status; }
     }
 
     Delay_us(LCD_DATA_SETUP_US);
-    status = LCD_WriteLine(LCD_EN_INDEX, GPIO_HIGH);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteLine(LCD_EN_INDEX, GPIO_HIGH);
     Delay_us(LCD_ENABLE_HIGH_US);
-    status = LCD_WriteLine(LCD_EN_INDEX, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteLine(LCD_EN_INDEX, GPIO_LOW);
     Delay_us(LCD_DATA_HOLD_US);
 
-    return VOLT_OK;
 }
 
-static volt_status_t LCD_SendByte(u8 value, GPIO_Level_t rs)
+static void LCD_SendByte(u8 value, GPIO_Level_t rs)
 {
-    volt_status_t status = LCD_WriteLine(LCD_RS_INDEX, rs);
-    if (status != VOLT_OK) { return status; }
-    status = LCD_WriteNibble((u8)(value >> 4U));
-    if (status != VOLT_OK) { return status; }
-    status = LCD_WriteNibble((u8)(value & 0x0FU));
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteLine(LCD_RS_INDEX, rs);
+    LCD_WriteNibble((u8)(value >> 4U));
+    LCD_WriteNibble((u8)(value & 0x0FU));
 
     if ((rs == GPIO_LOW) &&
         ((value == LCD_CMD_CLEAR) || (value == LCD_CMD_HOME)))
@@ -128,7 +106,6 @@ static volt_status_t LCD_SendByte(u8 value, GPIO_Level_t rs)
     {
         Delay_us(LCD_COMMAND_DELAY_US);
     }
-    return VOLT_OK;
 }
 
 /* Read at most capacity+1 bytes to decide whether the text fits. */
@@ -158,40 +135,27 @@ volt_status_t LCD_Init(void)
         /* Preload a low PORT latch using only public GPIO operations, then
          * enable output. This also avoids inheriting a previous pull-up latch.
          */
-        status = GPIO_SetDirection(lcdPins[i].port, lcdPins[i].pin, GPIO_INPUT);
-        if (status != VOLT_OK) { return LCD_Fail(status); }
-        status = GPIO_SetPullup(lcdPins[i].port, lcdPins[i].pin, GPIO_PULLUP_DISABLED);
-        if (status != VOLT_OK) { return LCD_Fail(status); }
-        status = GPIO_SetDirection(lcdPins[i].port, lcdPins[i].pin, GPIO_OUTPUT);
-        if (status != VOLT_OK) { return LCD_Fail(status); }
-        status = LCD_WriteLine(i, GPIO_LOW);
-        if (status != VOLT_OK) { return status; }
+        GPIO_SetDirection(lcdPins[i].port, lcdPins[i].pin, GPIO_INPUT);
+        GPIO_SetPullup(lcdPins[i].port, lcdPins[i].pin, GPIO_PULLUP_DISABLED);
+        GPIO_SetDirection(lcdPins[i].port, lcdPins[i].pin, GPIO_OUTPUT);
+        LCD_WriteLine(i, GPIO_LOW);
     }
 
     Delay_ms(LCD_POWER_ON_DELAY_MS);
-    status = LCD_WriteNibble(0x03U);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteNibble(0x03U);
     Delay_ms(LCD_RESET_FIRST_MS);
-    status = LCD_WriteNibble(0x03U);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteNibble(0x03U);
     Delay_us(LCD_RESET_NEXT_US);
-    status = LCD_WriteNibble(0x03U);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteNibble(0x03U);
     Delay_us(LCD_RESET_NEXT_US);
-    status = LCD_WriteNibble(0x02U);
-    if (status != VOLT_OK) { return status; }
+    LCD_WriteNibble(0x02U);
     Delay_us(LCD_RESET_NEXT_US);
 
-    status = LCD_SendByte(LCD_CMD_FUNCTION_4BIT, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
-    status = LCD_SendByte(LCD_CMD_DISPLAY_OFF, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
-    status = LCD_SendByte(LCD_CMD_CLEAR, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
-    status = LCD_SendByte(LCD_CMD_ENTRY, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
-    status = LCD_SendByte(LCD_CMD_DISPLAY_ON, GPIO_LOW);
-    if (status != VOLT_OK) { return status; }
+    LCD_SendByte(LCD_CMD_FUNCTION_4BIT, GPIO_LOW);
+    LCD_SendByte(LCD_CMD_DISPLAY_OFF, GPIO_LOW);
+    LCD_SendByte(LCD_CMD_CLEAR, GPIO_LOW);
+    LCD_SendByte(LCD_CMD_ENTRY, GPIO_LOW);
+    LCD_SendByte(LCD_CMD_DISPLAY_ON, GPIO_LOW);
 
     lcdReady = 1U;
     return VOLT_OK;
@@ -199,44 +163,40 @@ volt_status_t LCD_Init(void)
 
 volt_status_t LCD_Clear(void)
 {
-    volt_status_t status;
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
-    status = LCD_SendByte(LCD_CMD_CLEAR, GPIO_LOW);
-    if (status == VOLT_OK) { lcdColumn = 0U; }
-    return status;
+    LCD_SendByte(LCD_CMD_CLEAR, GPIO_LOW);
+    lcdColumn = 0U;
+    return VOLT_OK;
 }
 
 volt_status_t LCD_Home(void)
 {
-    volt_status_t status;
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
-    status = LCD_SendByte(LCD_CMD_HOME, GPIO_LOW);
-    if (status == VOLT_OK) { lcdColumn = 0U; }
-    return status;
+    LCD_SendByte(LCD_CMD_HOME, GPIO_LOW);
+    lcdColumn = 0U;
+    return VOLT_OK;
 }
 
 volt_status_t LCD_SetCursor(LCD_Row_t row, u8 column)
 {
-    volt_status_t status;
     u8 address;
     if ((row != LCD_ROW_1) && (row != LCD_ROW_2)) { return VOLT_INVALID_ARG; }
     if (column >= LCD_COLUMNS) { return VOLT_OUT_OF_RANGE; }
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
 
     address = (u8)(((row == LCD_ROW_1) ? 0x00U : 0x40U) + column);
-    status = LCD_SendByte((u8)(LCD_CMD_SET_DDRAM | address), GPIO_LOW);
-    if (status == VOLT_OK) { lcdColumn = column; }
-    return status;
+    LCD_SendByte((u8)(LCD_CMD_SET_DDRAM | address), GPIO_LOW);
+    lcdColumn = column;
+    return VOLT_OK;
 }
 
 volt_status_t LCD_WriteChar(char character)
 {
-    volt_status_t status;
     if (lcdReady == 0U) { return VOLT_NOT_READY; }
     if (lcdColumn >= LCD_COLUMNS) { return VOLT_OUT_OF_RANGE; }
-    status = LCD_SendByte((u8)character, GPIO_HIGH);
-    if (status == VOLT_OK) { ++lcdColumn; }
-    return status;
+    LCD_SendByte((u8)character, GPIO_HIGH);
+    ++lcdColumn;
+    return VOLT_OK;
 }
 
 volt_status_t LCD_WriteString(const char *text)
@@ -281,5 +241,6 @@ volt_status_t LCD_SetDisplayControl(
     if (display == LCD_ON) { command = (u8)(command | 0x04U); }
     if (cursor == LCD_ON) { command = (u8)(command | 0x02U); }
     if (blink == LCD_ON) { command = (u8)(command | 0x01U); }
-    return LCD_SendByte(command, GPIO_LOW);
+    LCD_SendByte(command, GPIO_LOW);
+    return VOLT_OK;
 }

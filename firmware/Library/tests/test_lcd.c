@@ -7,50 +7,42 @@
 static u8 direction[4], latch[4];
 static u8 nibbles[1024], rsValues[1024];
 static u64 times[1024], nowUs, riseTime, dataTime;
-static unsigned int edges, calls, failAt;
-static volt_status_t injected = VOLT_NOT_READY;
+static unsigned int edges, calls;
 
 static u8 readLine(GPIO_Port_t port, GPIO_Pin_t pin)
 {
     return (u8)(((unsigned int)latch[port] >> (unsigned int)pin) & 1U);
 }
 
-static volt_status_t startCall(GPIO_Port_t port, GPIO_Pin_t pin)
+static void startCall(GPIO_Port_t port, GPIO_Pin_t pin)
 {
     ++calls;
     assert((unsigned int)port <= 3U && (unsigned int)pin <= 7U);
-    if ((failAt != 0U) && (calls == failAt)) { return injected; }
-    return VOLT_OK;
 }
 
-volt_status_t GPIO_SetDirection(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Direction_t d)
+void GPIO_SetDirection(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Direction_t d)
 {
-    volt_status_t s = startCall(port, pin);
+    startCall(port, pin);
     u8 mask = (u8)(1U << pin);
-    if (s != VOLT_OK) { return s; }
     direction[port] = (d == GPIO_OUTPUT) ? (u8)(direction[port] | mask)
         : (u8)(direction[port] & (u8)~mask);
-    return VOLT_OK;
 }
 
-volt_status_t GPIO_SetPullup(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Pullup_t p)
+void GPIO_SetPullup(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Pullup_t p)
 {
-    volt_status_t s = startCall(port, pin);
+    startCall(port, pin);
     u8 mask = (u8)(1U << pin);
-    if (s != VOLT_OK) { return s; }
     assert((direction[port] & mask) == 0U);
     latch[port] = (p == GPIO_PULLUP_ENABLED) ? (u8)(latch[port] | mask)
         : (u8)(latch[port] & (u8)~mask);
-    return VOLT_OK;
 }
 
-volt_status_t GPIO_WritePin(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Level_t level)
+void GPIO_WritePin(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Level_t level)
 {
-    volt_status_t s = startCall(port, pin);
+    startCall(port, pin);
     u8 oldEn = readLine(LCD_EN_PORT, LCD_EN_PIN);
     u8 mask = (u8)(1U << pin);
-    if (s != VOLT_OK) { return s; }
-    if ((direction[port] & mask) == 0U) { return VOLT_NOT_READY; }
+    assert((direction[port] & mask) != 0U);
     latch[port] = (level == GPIO_HIGH) ? (u8)(latch[port] | mask)
         : (u8)(latch[port] & (u8)~mask);
     if ((port != LCD_EN_PORT) || (pin != LCD_EN_PIN)) { dataTime = nowUs; }
@@ -71,7 +63,6 @@ volt_status_t GPIO_WritePin(GPIO_Port_t port, GPIO_Pin_t pin, GPIO_Level_t level
         times[edges] = nowUs;
         ++edges;
     }
-    return VOLT_OK;
 }
 
 void Delay_us(u16 us) { nowUs += us; }
@@ -81,7 +72,7 @@ static void resetMock(void)
 {
     unsigned int i;
     for (i = 0U; i < 4U; ++i) { direction[i] = 0U; latch[i] = 0U; }
-    edges = 0U; calls = 0U; failAt = 0U;
+    edges = 0U; calls = 0U;
     nowUs = 0U; riseTime = 0U; dataTime = 0U;
 }
 
@@ -95,7 +86,7 @@ static void expectByte(unsigned int edge, u8 value, u8 rs)
 
 int main(void)
 {
-    unsigned int i, startupCalls, writeCalls, before;
+    unsigned int i, before;
     const u8 initCommands[] = {0x28, 0x08, 0x01, 0x06, 0x0C};
     resetMock();
     assert(LCD_Clear() == VOLT_NOT_READY);
@@ -108,7 +99,6 @@ int main(void)
     assert(calls == 0U);
 
     assert(LCD_Init() == VOLT_OK);
-    startupCalls = calls;
     assert(edges == 14U);
     assert(nibbles[0] == 3U && nibbles[1] == 3U && nibbles[2] == 3U && nibbles[3] == 2U);
     assert(times[0] >= 50000U);
@@ -158,33 +148,6 @@ int main(void)
         expectByte(0U, (u8)(0x80U + ((i < 16U) ? 0U : 0x40U) + i % 16U), 0U);
     }
 
-    /* Every GPIO operation in startup is a possible injected failure point. */
-    for (i = 1U; i <= startupCalls; ++i)
-    {
-        resetMock();
-        failAt = i;
-        injected = (i % 2U) ? VOLT_NOT_READY : VOLT_INVALID_ARG;
-        assert(LCD_Init() == injected);
-        before = calls;
-        assert(LCD_WriteChar('X') == VOLT_NOT_READY);
-        assert(calls == before);
-        failAt = 0U;
-        assert(LCD_Init() == VOLT_OK);
-    }
-    resetMock(); assert(LCD_Init() == VOLT_OK);
-    calls = 0U; edges = 0U;
-    assert(LCD_WriteChar('X') == VOLT_OK);
-    writeCalls = calls;
-    for (i = 1U; i <= writeCalls; ++i)
-    {
-        resetMock(); assert(LCD_Init() == VOLT_OK);
-        calls = 0U; edges = 0U; failAt = i; injected = VOLT_NOT_READY;
-        assert(LCD_WriteChar('X') == VOLT_NOT_READY);
-        before = calls;
-        assert(LCD_Clear() == VOLT_NOT_READY);
-        assert(calls == before);
-        failAt = 0U; assert(LCD_Init() == VOLT_OK);
-    }
-    puts("PASS LCD: startup, nibbles, RS/EN timing, row bounds, text validation and GPIO fault recovery.");
+    puts("PASS LCD: startup, nibbles, RS/EN timing, row bounds and text validation.");
     return 0;
 }
